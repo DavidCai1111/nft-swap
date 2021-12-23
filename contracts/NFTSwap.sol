@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: Unlicense
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
@@ -135,6 +135,66 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
       _swaps[id].bNFTs,
       _swaps[id].bEth
     );
+  }
+
+  // User A agrees on what user B offers, and finish the swap
+  function finishSwap(uint256 id) external onlyA(id) {
+    Swap memory swap = _swaps[id];
+
+    require(
+      (swap.aNFTs.length != 0 || swap.aEth != 0) &&
+      (swap.bNFTs.length != 0 || swap.bEth !=0),
+      "uninitSwap"
+    );
+
+    _ethLocked -= (swap.aEth + swap.bEth);
+
+    // b => a
+    safeTransfer(address(this), swap.aAddress, swap.bNFTs);
+
+    if (swap.bEth != 0) {
+      swap.aAddress.transfer(swap.bEth);
+    }
+
+    // a => b
+    safeTransfer(address(this), swap.bAddress, swap.aNFTs);
+
+    if (swap.aEth != 0) {
+      swap.bAddress.transfer(swap.aEth);
+    }
+
+    emit SwapDone(swap.aAddress, swap.bAddress, id);
+
+    delete _swaps[id];
+  }
+
+  // Either user A or user B can cancel the swap
+  function cancelSwap(uint256 id) external {
+    Swap memory swap = _swaps[id];
+
+    require(swap.aAddress == msg.sender || swap.bAddress == msg.sender, "notUserAorB");
+
+    _ethLocked -= (swap.aEth + swap.bEth);
+
+    if (swap.aNFTs.length != 0) {
+      safeTransfer(address(this), swap.aAddress, swap.aNFTs);
+    }
+
+    if (swap.aEth != 0) {
+      swap.aAddress.transfer(swap.aEth);
+    }
+
+    if (swap.bNFTs.length != 0) {
+      safeTransfer(address(this), swap.bAddress, swap.bNFTs);
+    }
+
+    if (swap.bEth != 0) {
+      swap.bAddress.transfer(swap.bEth);
+    }
+
+    emit SwapCancel(swap.aAddress, swap.bAddress, id);
+
+    delete _swaps[id];
   }
 
   function safeTransfer(address from, address to, NFT[] memory nfts) internal {

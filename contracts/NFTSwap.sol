@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
   uint256 private _fee;
@@ -74,6 +75,15 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
     _;
   }
 
+  modifier onlyAorB(uint256 swapId) {
+    require(
+      _swaps[swapId].aAddress == msg.sender ||
+      _swaps[swapId].bAddress == msg.sender,
+      "onlySwapCreatorCanCall"
+    );
+    _;
+  }
+
   modifier chargeFee() {
     require(msg.value >= _fee, "feeNotGiven");
     _;
@@ -92,6 +102,11 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
   function changeFee(uint128 fee) external onlyOwner {
     _fee = fee;
     emit FeeChange(_fee);
+  }
+
+  // Get swap by id, only by user A or B
+  function getSwap(uint128 id) external view returns (Swap memory) {
+    return _swaps[id];
   }
 
   // User A create a swap
@@ -120,7 +135,7 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
 
   // User B init the swap
   function initSwap(uint256 id, NFT[] memory bNFTs) external payable chargeFee {
-    require(_swaps[id].bAddress != msg.sender, "notCorrectUserB");
+    require(_swaps[id].bAddress == msg.sender, "notCorrectUserB");
     require(_swaps[id].bNFTs.length == 0 && _swaps[id].bEth == 0, "swapAlreadyInit");
 
     safeTransfer(msg.sender, address(this), bNFTs);

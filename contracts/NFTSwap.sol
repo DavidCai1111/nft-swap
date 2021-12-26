@@ -79,9 +79,13 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
     _;
   }
 
-  constructor(uint128 fee, address owner) {
+  constructor(uint128 fee) {
     _fee = fee;
-    super.transferOwnership(owner);
+    super.transferOwnership(msg.sender);
+  }
+
+  function getFee() external view returns(uint256) {
+    return _fee;
   }
 
   // Change the contract service fee
@@ -99,7 +103,10 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
     Swap storage swap = _swaps[_swapIdx];
 
     swap.aAddress = payable(msg.sender);
-    swap.aNFTs = aNFTs;
+
+    for (uint256 i = 0;i < aNFTs.length; i++) {
+      swap.aNFTs.push(aNFTs[i]);
+    }
 
     if (msg.value > _fee) {
       swap.aEth = msg.value - _fee;
@@ -119,7 +126,10 @@ contract NFTSwap is Ownable, ERC721Holder, ERC1155Holder {
     safeTransfer(msg.sender, address(this), bNFTs);
 
     _swaps[id].bAddress = payable(msg.sender);
-    _swaps[id].bNFTs = bNFTs;
+
+    for (uint256 i = 0; i < bNFTs.length; i++) {
+      _swaps[id].bNFTs.push(bNFTs[i]);
+    }
 
     if (msg.value > _fee) {
       _swaps[id].bEth = msg.value - _fee;
